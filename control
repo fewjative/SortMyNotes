@@ -1,0 +1,9 @@
+Package: com.joshdoctors.sortmynotes
+Name: SortMyNotes
+Depends: mobilesubstrate
+Version: 0.0.1
+Architecture: iphoneos-arm
+Description: An awesome MobileSubstrate tweak!
+Maintainer: Josh Doctors
+Author: Josh Doctors
+Section: Tweaks
