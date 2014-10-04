@@ -1,0 +1,30 @@
+
+*.deb
+
+*.o
+
+.theos/fakeroot
+
+.theos/last_package
+
+.theos/packages/com.joshdoctors.notesort-0.0.1
+
+.theos/packages/com.joshdoctors.sortmynotes-0.0.1
+
+Tweak backup newer.xm
+
+Tweak newer newer.xm
+
+Tweak recent backup.xm
+
+Tweak.xm copy
+
+_/DEBIAN/control
+
+*.dylib
+
+_/Library/MobileSubstrate/DynamicLibraries/SortMyNotes.plist
+
+obj/.stamp
+
+theos
