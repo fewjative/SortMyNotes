@@ -22,8 +22,8 @@
 
 @interface NoteObject:NSObject
 {
-	NSString * title;
 }
+@property (copy, nonatomic) NSString * guid;
 @end
 
 #import <CoreData/NSFetchedResultsController.h>
@@ -33,6 +33,7 @@
 #import <CoreData/NSPersistentStoreCoordinator.h>
 #import <CoreData/NSManagedObjectID.h>
 #import <CoreData/NSManagedObject.h>
+#import <Foundation/NSString.h>
 
 @interface NotesListController : UIViewController <UIActionSheetDelegate>
 {
