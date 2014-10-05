@@ -107,11 +107,24 @@ NSString *createDescending = @"Creation Date(Descending)";
 	if([favorites containsObject:creationDate])
 	{
 		NSLog(@"creationDate is in favorites, indexPath %@", indexPath);
-		original.contentView.backgroundColor = [UIColor colorWithRed:1.00 green:0.95 blue:0.80 alpha:1.0];
+		/*original.contentView.backgroundColor = [UIColor colorWithRed:1.00 green:0.95 blue:0.80 alpha:1.0];
+		original.accessoryView.backgroundColor = [UIColor colorWithRed:1.00 green:0.95 blue:0.80 alpha:1.0];
+		original.backgroundColor = [UIColor colorWithRed:1.00 green:0.95 blue:0.80 alpha:1.0];*/
+		UIView * v = [[UIView alloc] initWithFrame:original.frame];
+		v.backgroundColor = [UIColor colorWithRed:1.00 green:0.95 blue:0.80 alpha:1.0];
+		original.backgroundView = v;
+		[v release];
+
 	}
 	else
 	{
-		original.contentView.backgroundColor = [UIColor clearColor];
+		UIView * v = [[UIView alloc] initWithFrame:original.frame];
+		v.backgroundColor = [UIColor clearColor];
+		original.backgroundView = v;
+		[v release];
+		/*original.contentView.backgroundColor = [UIColor clearColor];
+		original.accessoryView.backgroundColor = [UIColor clearColor];
+		original.backgroundColor = [UIColor clearColor];*/
 	}
 
 	return original;
@@ -176,6 +189,26 @@ NSString *createDescending = @"Creation Date(Descending)";
 	%orig;
 	NSLog(@"ViewDidAppear");
 
+	NSLog(@"Sorting choice: %li",(long)selection);
+
+    UINavigationController * ret = [self noteDisplayNavigationController];
+	UINavigationBar * bar = [ret navigationBar];
+
+	if([[[bar topItem] rightBarButtonItems] count] < 2)
+	{
+		UIBarButtonItem * add = [[bar topItem] rightBarButtonItem];
+	    UIBarButtonItem *btnSort = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAction target:self action:@selector(sortActionSheet)];
+	    [[bar topItem] setRightBarButtonItems:[NSArray arrayWithObjects:add,btnSort,nil]];
+	}
+
+	[self changeSort:selection-1];
+	
+}
+
+-(void)viewWillAppear:(BOOL)view{
+	NSLog(@"ViewWillAppear");
+	%orig;
+
 	id selectionobj = [[NSUserDefaults standardUserDefaults] objectForKey:@"NotesSelection"];
 
 	if(selectionobj== nil)
@@ -196,37 +229,12 @@ NSString *createDescending = @"Creation Date(Descending)";
 		favorites = [[NSMutableArray alloc] initWithArray:favorites];
 	}
 
-	NSLog(@"Sorting choice: %li",(long)selection);
-
-    UINavigationController * ret = [self noteDisplayNavigationController];
-	UINavigationBar * bar = [ret navigationBar];
-
-	if([[[bar topItem] rightBarButtonItems] count] < 2)
-	{
-		UIBarButtonItem * add = [[bar topItem] rightBarButtonItem];
-	    UIBarButtonItem *btnSort = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAction target:self action:@selector(sortActionSheet)];
-	    [[bar topItem] setRightBarButtonItems:[NSArray arrayWithObjects:add,btnSort,nil]];
-	}
-
-	if(selection !=4)
-	{
-		[self actionSheet:nil clickedButtonAtIndex:selection-1];
-	}
-}
-
--(void)viewWillAppear:(BOOL)view{
-	NSLog(@"ViewWillAppear");
-	%orig;
-
 	UILongPressGestureRecognizer * longPress = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(longPressTap:)];
 	UITableView * tbv = MSHookIvar<UITableView*>(self,"_table");
 	[tbv addGestureRecognizer:longPress];
 	[longPress release];
 
-	if(selection !=4)
-	{
-		[self changeSort:selection-1];
-	}
+	[self changeSort:selection-1];
 }
 
 -(void)reloadTables {
@@ -244,11 +252,12 @@ NSString *createDescending = @"Creation Date(Descending)";
 {
 	//MORE TO MY NOTES
 	//need to change this sot hat it only effects sorting that comes from the Notes app
-	NSLog(@"PerformFetch nsfrc");
+	NSLog(@"PerformFetch");
 	bool b = %orig;
 	
 	if(b && [favorites count] >0 && sortFavorites)
 	{
+		NSLog(@"Have a favorite, modifying table");
 		[self _makeMutableFetchedObjects];
 		NSMutableArray * fetchedObjects = MSHookIvar<NSMutableArray*>(self,"_fetchedObjects");
 		NSMutableArray * favCopy = [[NSMutableArray alloc] initWithArray:favorites copyItems:YES];
