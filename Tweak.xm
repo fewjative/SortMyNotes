@@ -117,7 +117,7 @@ NSString *createDescending = @"Creation Date(Descending)";
 -(id)tableView:(id)view cellForRowAtIndexPath:(NSIndexPath*)indexPath
 {
 	UITableViewCell * original = %orig;
-	UIButton *tap = [UIButton buttonWithType:UIButtonTypeCustom];
+	/*UIButton *tap = [UIButton buttonWithType:UIButtonTypeCustom];
 	CGRect frame = original.frame;
 	frame.size.width /= 1.5f;
 	frame.size.height /= 1.2f;
@@ -128,7 +128,7 @@ NSString *createDescending = @"Creation Date(Descending)";
 
 	UILongPressGestureRecognizer * longPress = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(longPressTap:)];
 	[tap addGestureRecognizer:longPress];
-	[original addSubview:tap];
+	[original addSubview:tap];*/
 
 	NSFetchedResultsController* listFRC = MSHookIvar<NSFetchedResultsController*>(self,"_listFRC");
 
@@ -137,9 +137,14 @@ NSString *createDescending = @"Creation Date(Descending)";
 
 	if([favorites containsObject:guid])
 	{
+		original.contentView.backgroundColor = [UIColor colorWithRed:1.00 green:0.95 blue:0.80 alpha:1.0];
 		NSLog(@"guid is in favorites, indexPath %@", indexPath);
 		UITableView * tbv = MSHookIvar<UITableView*>(self,"_table");
 		NSLog(@"datasource: %@",[tbv dataSource]);
+	}
+	else
+	{
+		original.contentView.backgroundColor = [UIColor clearColor];
 	}
 
 	return original;
@@ -228,6 +233,11 @@ NSString *createDescending = @"Creation Date(Descending)";
 
 	NSFetchedResultsController* listFRC = MSHookIvar<NSFetchedResultsController*>(self,"_listFRC");
 	NSLog(@"listFRC : %@", listFRC);
+
+	UILongPressGestureRecognizer * longPress = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(longPressTap:)];
+	UITableView * tbv = MSHookIvar<UITableView*>(self,"_table");
+	[tbv addGestureRecognizer:longPress];
+	[longPress release];
 	//NSLog(@"entities: %@", [listFRC fetchedObjects]);
 
 	/*for(NoteObject *entry in [listFRC fetchedObjects])
@@ -287,12 +297,14 @@ NSString *createDescending = @"Creation Date(Descending)";
 	return ret;
 }*/
 
+/*
 - (long long)caseInsensitiveCompare:(id)arg1{
 	NSLog(@"self: %@", [self description]);
 	NSLog(@"compare caseInsensitiveCompare, %@",arg1);
 	long long ret = %orig;
 	return ret;
-}
+}*/
+
 /*
 - (long long)compare:(id)arg1 options:(unsigned long long)arg2 range:(id)arg3 locale:(id)arg4{
 	//NSLog(@"self: %@", [self description]);
@@ -330,14 +342,45 @@ NSString *createDescending = @"Creation Date(Descending)";
 {
 	NSArray * ret = %orig;
     NSLog(@"array addres %p", ret);
+
+  // NSArray * fo;
+  //  object_getInstanceVariable(self,"_fetchedObjects",(void **)&fo);
+
 	return ret;
 }
 
 -(BOOL)performFetch:(id*)arg1
 {
+	//MORE TO MY NOTES
+	//need to change this sot hat it only effects sorting that comes from the Notes app
 	NSLog(@"PerformFetch nsfrc");
 	bool b = %orig;
-	NSArray * fetchedObjects = MSHookIvar<NSArray *>(self,"_fetchedObjects");
+	
+	if(b && [favorites count] >0 && sortFavorites)
+	{
+		[self _makeMutableFetchedObjects];
+		NSMutableArray * fetchedObjects = MSHookIvar<NSMutableArray*>(self,"_fetchedObjects");
+
+		for(long i=0; i < [fetchedObjects count]; i++)
+		{
+			NoteObject *note = [fetchedObjects objectAtIndex:i];
+			if([favorites containsObject:[note guid]])
+			{
+				NSLog(@"Found a favorite and moving it,index: %ld",(long)i);
+				id object = [fetchedObjects objectAtIndex:i];
+				[[object retain] autorelease];
+				[fetchedObjects removeObjectAtIndex:i];
+				[fetchedObjects insertObject:object atIndex:0];
+			}
+			//ALSO CHECK THAT DELETED FAVORITES ARE NO LONGER IN LIST
+		}
+		NSLog(@"mutable: %@", fetchedObjects);
+		NSLog(@"new ivar: %@", MSHookIvar<NSMutableArray*>(self,"_fetchedObjects"));
+		//sortFavorites = NO;
+	}
+
+
+	/*NSArray * fetchedObjects = MSHookIvar<NSArray *>(self,"_fetchedObjects");
 	NSLog(@"array addres %p", fetchedObjects);
 
 	NSLog(@"nsfrc fetched: %@", fetchedObjects);
@@ -371,6 +414,7 @@ NSString *createDescending = @"Creation Date(Descending)";
 		NSLog(@"nsfrc fetched again: %@", fetchedObjects2);
 		sortFavorites = NO;
 	}
+	*/
 	return b;
 }
 
