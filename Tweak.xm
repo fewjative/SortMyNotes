@@ -7,14 +7,14 @@ static bool sortFavorites = NO;
 
 %hook NotesListController
 
-NSString *alphaAscending = @"Alphabetically(Ascending)";
-NSString *alphaDescending = @"Alphabetically(Descending)";
+NSString *alphaAscending = @"Alphabetically(\u2B06\U0000FE0E)";
+NSString *alphaDescending = @"Alphabetically(\u2B07\U0000FE0E)";
 
-NSString *modAscending = @"Modification Date(Ascending)";
-NSString *modDescending = @"Modification Date(Descending)";
+NSString *modAscending = @"Modification Date(\u2B06\U0000FE0E)";
+NSString *modDescending = @"Modification Date(\u2B07\U0000FE0E)";
 
-NSString *createAscending = @"Creation Date(Ascending)";
-NSString *createDescending = @"Creation Date(Descending)";
+NSString *createAscending = @"Creation Date(\u2B06\U0000FE0E)";
+NSString *createDescending = @"Creation Date(\u2B07\U0000FE0E)";
 
 %new -(void)changeSort:(NSInteger)index {
 	NSLog(@"Changing the sort type");
@@ -35,7 +35,7 @@ NSString *createDescending = @"Creation Date(Descending)";
 	if(index==1)
 	{
 		selection = 2;
-		sortDescriptor = [[NSSortDescriptor alloc] initWithKey:@"title" ascending:NO];//selector:@selector(compareDesc:)
+		sortDescriptor = [[NSSortDescriptor alloc] initWithKey:@"title" ascending:NO];
 		ascending = NO;
 	}
 
@@ -98,8 +98,7 @@ NSString *createDescending = @"Creation Date(Descending)";
 	UITableViewCell * original = %orig;
 
 	NSFetchedResultsController* listFRC = MSHookIvar<NSFetchedResultsController*>(self,"_listFRC");
-	//NSLog(@"listFRC: %@", listFRC);
-	//NSLog(@"fetchedObjects: %@", [listFRC fetchedObjects]);
+
 	NSDate * creationDate = [[[listFRC fetchedObjects] objectAtIndex: indexPath.row] creationDate];
 	NSLog(@"date for row: %@",creationDate);
 	NSLog(@"row: %ld", (long)indexPath.row);
@@ -107,14 +106,10 @@ NSString *createDescending = @"Creation Date(Descending)";
 	if([favorites containsObject:creationDate])
 	{
 		NSLog(@"creationDate is in favorites, indexPath %@", indexPath);
-		/*original.contentView.backgroundColor = [UIColor colorWithRed:1.00 green:0.95 blue:0.80 alpha:1.0];
-		original.accessoryView.backgroundColor = [UIColor colorWithRed:1.00 green:0.95 blue:0.80 alpha:1.0];
-		original.backgroundColor = [UIColor colorWithRed:1.00 green:0.95 blue:0.80 alpha:1.0];*/
 		UIView * v = [[UIView alloc] initWithFrame:original.frame];
 		v.backgroundColor = [UIColor colorWithRed:1.00 green:0.95 blue:0.80 alpha:1.0];
 		original.backgroundView = v;
 		[v release];
-
 	}
 	else
 	{
@@ -122,9 +117,6 @@ NSString *createDescending = @"Creation Date(Descending)";
 		v.backgroundColor = [UIColor clearColor];
 		original.backgroundView = v;
 		[v release];
-		/*original.contentView.backgroundColor = [UIColor clearColor];
-		original.accessoryView.backgroundColor = [UIColor clearColor];
-		original.backgroundColor = [UIColor clearColor];*/
 	}
 
 	return original;
@@ -154,8 +146,9 @@ NSString *createDescending = @"Creation Date(Descending)";
 
 		if(![favorites containsObject:creationDate])
 		{
-			[favorites addObject:creationDate];
-		}else
+			[favorites insertObject:creationDate atIndex:0];
+		}
+		else
 		{
 			[favorites removeObject:creationDate];
 		}
@@ -280,6 +273,17 @@ NSString *createDescending = @"Creation Date(Descending)";
 		{
 			NSDate *creationDate = [favCopy objectAtIndex:i];
 			[favorites removeObject:creationDate];
+		}
+
+		for(long i=0; i< [favorites count]; i++)
+		{
+			NoteObject * note = [fetchedObjects objectAtIndex:i];
+			long newIndex = [favorites indexOfObject:[note creationDate]];
+
+			if(i != newIndex)
+			{
+				[fetchedObjects exchangeObjectAtIndex:i withObjectAtIndex:newIndex];
+			}
 		}
 
 		[[NSUserDefaults standardUserDefaults] setObject:favorites forKey:@"NotesFavorites"];
