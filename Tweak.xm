@@ -7,14 +7,14 @@ static bool sortFavorites = NO;
 
 %hook NotesListController
 
-NSString *alphaAscending = @"Alphabetically(\u2B06\U0000FE0E)";
-NSString *alphaDescending = @"Alphabetically(\u2B07\U0000FE0E)";
+NSString *alphaAscending = @"Alphabetically \u2B06\U0000FE0E";
+NSString *alphaDescending = @"Alphabetically \u2B07\U0000FE0E";
 
-NSString *modAscending = @"Modification Date(\u2B06\U0000FE0E)";
-NSString *modDescending = @"Modification Date(\u2B07\U0000FE0E)";
+NSString *modAscending = @"Modification Date \u2B06\U0000FE0E";
+NSString *modDescending = @"Modification Date \u2B07\U0000FE0E";
 
-NSString *createAscending = @"Creation Date(\u2B06\U0000FE0E)";
-NSString *createDescending = @"Creation Date(\u2B07\U0000FE0E)";
+NSString *createAscending = @"Creation Date \u2B06\U0000FE0E";
+NSString *createDescending = @"Creation Date \u2B07\U0000FE0E";
 
 %new -(void)changeSort:(NSInteger)index {
 	NSLog(@"Changing the sort type");
@@ -187,11 +187,24 @@ NSString *createDescending = @"Creation Date(\u2B07\U0000FE0E)";
     UINavigationController * ret = [self noteDisplayNavigationController];
 	UINavigationBar * bar = [ret navigationBar];
 
-	if([[[bar topItem] rightBarButtonItems] count] < 2)
+	if( UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad)
 	{
-		UIBarButtonItem * add = [[bar topItem] rightBarButtonItem];
-	    UIBarButtonItem *btnSort = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAction target:self action:@selector(sortActionSheet)];
-	    [[bar topItem] setRightBarButtonItems:[NSArray arrayWithObjects:add,btnSort,nil]];
+		if([[[bar topItem] rightBarButtonItems] count] < 4)
+		{
+			NSMutableArray * items = [(NSArray*)[[bar topItem] rightBarButtonItems] mutableCopy];
+			UIBarButtonItem *btnSort = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemOrganize target:self action:@selector(sortActionSheet)];
+			[items addObject:btnSort];
+			[[bar topItem] setRightBarButtonItems:items];
+		}
+	}
+	else
+	{
+		if([[[bar topItem] rightBarButtonItems] count] < 2)
+		{
+			UIBarButtonItem * add = [[bar topItem] rightBarButtonItem];
+		    UIBarButtonItem *btnSort = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemOrganize target:self action:@selector(sortActionSheet)];
+		    [[bar topItem] setRightBarButtonItems:[NSArray arrayWithObjects:add,btnSort,nil]];
+		}
 	}
 
 	[self changeSort:selection-1];
