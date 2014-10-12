@@ -366,9 +366,9 @@ NSString *createDescending = @"Creation Date \u2B07\U0000FE0E";
 
 %new -(void)sortActionSheet{
    NSLog(@"Bringing up action sheet for the iPad");
-
+   NotesDisplayController * ndc = [[UIApplication sharedApplication] displayController];
    UIActionSheet *actionSheet = [[UIActionSheet alloc] initWithTitle:nil
-   														delegate:self
+   														delegate:[ndc delegate]
    														cancelButtonTitle:@"Cancel"
    														destructiveButtonTitle:nil
    														otherButtonTitles:alphaAscending,alphaDescending,modAscending,modDescending,createAscending,createDescending,nil];
