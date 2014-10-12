@@ -44,3 +44,16 @@
 - (id)noteDisplayNavigationController;
 -(void)changeSort:(NSInteger)index;
 @end
+
+@interface UIApplication ()
+-(NotesListController*)listController;
+-(id)displayController;
+-(id)navigationController;
+-(id)mainViewController;
+@end
+
+@interface NotesDisplayController : UIViewController <UIActionSheetDelegate>
+-(void)changeSort:(NSInteger)index;
+-(void)sortActionSheetTest;
+-(id)delegate;
+@end
