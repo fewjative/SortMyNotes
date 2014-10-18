@@ -34,15 +34,18 @@
 #import <CoreData/NSPersistentStoreCoordinator.h>
 #import <CoreData/NSManagedObjectID.h>
 #import <CoreData/NSManagedObject.h>
-#import <Foundation/NSString.h>
+#import <CoreGraphics/CoreGraphics.h>
 
 @interface NotesListController : UIViewController <UIActionSheetDelegate>
 {
 	NSFetchedResultsController* _listFRC;
 }
+- (UIColor *)colorFromHexString:(NSString *)hexString;
 - (void)reloadTables;
 - (id)noteDisplayNavigationController;
 -(void)changeSort:(NSInteger)index;
+-(void)changeColor:(NSInteger)index;
+-(NSString*)hexStringFromColor:(UIColor*)color;
 @end
 
 @interface UIApplication ()
