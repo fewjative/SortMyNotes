@@ -340,8 +340,9 @@ NSString * customColor = @"Custom Color";
 	NSFetchedResultsController* listFRC = MSHookIvar<NSFetchedResultsController*>(self,"_listFRC");
 
 	NSDate * creationDate = [[[listFRC fetchedObjects] objectAtIndex: indexPath.row] creationDate];
+	NSString * searchTerms = MSHookIvar<NSString*>(self,"_searching");
 
-	if([favorites containsObject:creationDate])
+	if([favorites containsObject:creationDate] && searchTerms ==nil)
 	{
 		NSLog(@"creationDate is in favorites, indexPath %@", indexPath);
 		UIView * v = [[UIView alloc] initWithFrame:original.frame];
@@ -580,6 +581,9 @@ NSString * customColor = @"Custom Color";
 		NSMutableArray * fetchedObjects = MSHookIvar<NSMutableArray*>(self,"_fetchedObjects");
 		NSMutableArray * favCopy = [[NSMutableArray alloc] initWithArray:favorites copyItems:YES];
 
+		NSDateFormatter * dateFormat = [[NSDateFormatter alloc] init];
+		[dateFormat setDateFormat:@"yyyy-MM-dd HH:mm:ss Z"];
+
 		for(long i=0; i < [fetchedObjects count]; i++)
 		{
 			NoteObject *note = [fetchedObjects objectAtIndex:i];
@@ -590,12 +594,9 @@ NSString * customColor = @"Custom Color";
 				[[object retain] autorelease];
 				[fetchedObjects removeObjectAtIndex:i];
 				[fetchedObjects insertObject:object atIndex:0];
-				[favCopy removeObject:[note creationDate]];
+				[favCopy removeObject:[note creationDate]];//favCopy contains date objects and thus we don't need to convert to string
 			}
 		}
-
-		NSDateFormatter * dateFormat = [[NSDateFormatter alloc] init];
-			[dateFormat setDateFormat:@"yyyy-MM-dd HH:mm:ss Z"];
 
 		for(long i=0; i < [favCopy count]; i++)//removes favorites that have been deleted
 		{
@@ -604,23 +605,37 @@ NSString * customColor = @"Custom Color";
 			[colorMap removeObjectForKey:[dateFormat stringFromDate:creationDate]];
 		}
 
+		//Removes extras from the dictionary
+		/*NSMutableArray * allKeys = [[colorMap allKeys] mutableCopy];
+
+		for(long j=0; j < [allKeys count]; j++)
+		{
+			if(![favorites containsObject:[dateFormat dateFromString:[allKeys objectAtIndex:j]]])
+			{
+				[colorMap removeObjectForKey:[allKeys objectAtIndex:j]];
+			}
+		}*/
+
 		if(sortFavByColor)
 		{
-			/*NSArray * sortedKeys = [colorMap keysSortedByValueUsingComparator:^(NSString * obj1, NSString * obj2){
+			NSArray * sortedKeys = [colorMap keysSortedByValueUsingComparator:^(NSString * obj1, NSString * obj2){
 				return (NSComparisonResult)[obj1 compare:obj2];
 			}];
 
+			NSLog(@"keys %@",sortedKeys);
+			NSLog(@"fav count: %ld",(long)[favorites count]);
+
 			for(long i=0; i< [favorites count]; i++)
 			{
-				long newIndex = [favorites indexOfObject:[colorMap objectForKey:[sortedKeys objectAtIndex:i]]];
+				NoteObject * note = [fetchedObjects objectAtIndex:i];
+				NSLog(@"note: %@", note);
+				long newIndex = [sortedKeys indexOfObject:[dateFormat stringFromDate:[note creationDate]]];
 
 				if(i != newIndex)
 				{
 					[fetchedObjects exchangeObjectAtIndex:i withObjectAtIndex:newIndex];
 				}
-			}*/
-
-			//perform logic in here to sort
+			}
 
 		}
 		else
