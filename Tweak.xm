@@ -188,8 +188,6 @@ NSString * customColor = @"Custom Color";
 
 	if(index==0)
 	{
-		//SET CUSTOM COLOR
-		//DISPLAY POPUP
 		UIAlertView * alertView = [[UIAlertView alloc] initWithTitle:@"Enter The Hex Of The Color(no #)" message:@"" delegate:self cancelButtonTitle:@"Cancel" otherButtonTitles:@"Ok",nil];
 		alertView.tag=1;
 		alertView.alertViewStyle = UIAlertViewStylePlainTextInput;
@@ -262,21 +260,20 @@ NSString * customColor = @"Custom Color";
 		[colorMap setObject:[self hexStringFromColor:grayColorUI] forKey:[dateFormat stringFromDate:creationDate]];
 	}
 
-	if( UI_USER_INTERFACE_IDIOM() != UIUserInterfaceIdiomPad)
-	{
-		if(index !=0)
+	//if( UI_USER_INTERFACE_IDIOM() != UIUserInterfaceIdiomPad)
+	//{
+		if(index !=0 && index !=14)
 		{
 			[[NSUserDefaults standardUserDefaults] setObject:colorMap forKey:@"colorMap"];
 			[self changeSort:selection-1];
 		}
-	}
+	//}
 
 	if(index==14)
 	{
 		noteToChangeColor = nil;
 		return;
 	}
-	//IF NOT IPAD, SAVE NSUSERDEFAULTS NO. IF IPAD PERFORM REFRESH?
 }
 
 %new -(void)alertView:(UIAlertView*)alertView clickedButtonAtIndex:(NSInteger)buttonIndex{
@@ -428,6 +425,8 @@ NSString * customColor = @"Custom Color";
 	}
 	else if(actionSheet.tag==2)
 	{
+		bool sortFavCurrent = sortFavByColor;
+
 		if(clickedButtonAtIndex==0)
 		{
 			sortFavByColor = YES;
@@ -436,7 +435,8 @@ NSString * customColor = @"Custom Color";
 			sortFavByColor = NO;
 		}
 
-		[self changeSort:selection-1];//we don't want to change the main sorting type of the table so we use the previous stored value
+		if(sortFavCurrent != sortFavByColor)
+			[self changeSort:selection-1];
 	}
 	else if(actionSheet.tag ==3 || actionSheet.tag==4)
 	{
@@ -528,7 +528,6 @@ NSString * customColor = @"Custom Color";
 	else
 	{
 		colorMap = [[[NSUserDefaults standardUserDefaults] objectForKey:@"colorMap"] mutableCopy];
-		//can we just replace the above with colorMap = [colorMap mutableCopy];?
 	}
 
 	UILongPressGestureRecognizer * longPress = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(longPressTap:)];
@@ -605,35 +604,22 @@ NSString * customColor = @"Custom Color";
 			[colorMap removeObjectForKey:[dateFormat stringFromDate:creationDate]];
 		}
 
-		//Removes extras from the dictionary
-		/*NSMutableArray * allKeys = [[colorMap allKeys] mutableCopy];
-
-		for(long j=0; j < [allKeys count]; j++)
-		{
-			if(![favorites containsObject:[dateFormat dateFromString:[allKeys objectAtIndex:j]]])
-			{
-				[colorMap removeObjectForKey:[allKeys objectAtIndex:j]];
-			}
-		}*/
-
 		if(sortFavByColor)
 		{
 			NSArray * sortedKeys = [colorMap keysSortedByValueUsingComparator:^(NSString * obj1, NSString * obj2){
 				return (NSComparisonResult)[obj1 compare:obj2];
 			}];
 
-			NSLog(@"keys %@",sortedKeys);
-			NSLog(@"fav count: %ld",(long)[favorites count]);
-
-			for(long i=0; i< [favorites count]; i++)
+			for(long i=0; i< [sortedKeys count]; i++)
 			{
-				NoteObject * note = [fetchedObjects objectAtIndex:i];
-				NSLog(@"note: %@", note);
-				long newIndex = [sortedKeys indexOfObject:[dateFormat stringFromDate:[note creationDate]]];
-
-				if(i != newIndex)
+				for(long j=i; j< [favorites count]; j++)
 				{
-					[fetchedObjects exchangeObjectAtIndex:i withObjectAtIndex:newIndex];
+					NoteObject * note = [fetchedObjects objectAtIndex:j];
+					if([[dateFormat stringFromDate:[note creationDate]] isEqualToString:[sortedKeys objectAtIndex:i]] && i!=j)
+					{
+						[fetchedObjects exchangeObjectAtIndex:i withObjectAtIndex:j];
+						break;
+					}
 				}
 			}
 
@@ -651,8 +637,6 @@ NSString * customColor = @"Custom Color";
 				}
 			}
 		}
-
-
 
 		[[NSUserDefaults standardUserDefaults] setObject:favorites forKey:@"NotesFavorites"];
 
@@ -724,7 +708,7 @@ NSString * customColor = @"Custom Color";
 	}
 	else
 	{
-		NotesDisplayController * ndc = [[UIApplication sharedApplication] displayController];
+	   NotesDisplayController * ndc = [[UIApplication sharedApplication] displayController];
 	   UIActionSheet *actionSheet = [[UIActionSheet alloc] initWithTitle:nil
 	   														delegate:[ndc delegate]
 	   														cancelButtonTitle:@"Cancel"
@@ -736,19 +720,6 @@ NSString * customColor = @"Custom Color";
 	   [actionSheet release];
 	}
 }
-
-/*%new -(void)sortActionSheetTest{
-   NSLog(@"Bringing up action sheet for the iPad");
-   NotesDisplayController * ndc = [[UIApplication sharedApplication] displayController];
-   UIActionSheet *actionSheet = [[UIActionSheet alloc] initWithTitle:nil
-   														delegate:[ndc delegate]
-   														cancelButtonTitle:@"Cancel"
-   														destructiveButtonTitle:nil
-   														otherButtonTitles:alphaAscending,alphaDescending,modAscending,modDescending,createAscending,createDescending,nil];
-   UIView * mview = MSHookIvar<UIView*>(self,"_backgroundView");
-   [actionSheet showInView:mview];
-
-}*/
 
 %new - (void)actionSheet:(UIActionSheet*)actionSheet clickedButtonAtIndex:(NSInteger)clickedButtonAtIndex{
 	NSLog(@"clickedButton on DisplayController actionsheets");
@@ -865,34 +836,24 @@ NSString * customColor = @"Custom Color";
 		NSLog(@"topItem: %@",[bar topItem]);
 		NSLog(@"rightItems: %@",[[bar topItem] rightBarButtonItems]);
 
-		if([[[bar topItem] rightBarButtonItems] count] < 6)
+		if([[[bar topItem] rightBarButtonItems] count] < 7)
 		{
 			NSMutableArray * items = [(NSArray*)[[bar topItem] rightBarButtonItems] mutableCopy];
 			UIBarButtonItem *btnSort = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemOrganize target:self action:@selector(sortActionSheet)];
 			[items addObject:btnSort];
+
+			NoteObject * selectedNote = MSHookIvar<NoteObject*>(self,"_note");
+
+			if([favorites containsObject:[selectedNote creationDate]])
+			{
+				NSString *colorPalette = @"\U0001F3A8\U0000FE0E";
+				UIBarButtonItem * color = [[UIBarButtonItem alloc] initWithTitle:colorPalette style:UIBarButtonItemStylePlain target:self action:@selector(colorActionSheet)];
+				[items addObject:color];
+				[color release];
+			}
 			[[bar topItem] setRightBarButtonItems:items];
 			[btnSort release];
 		}
-
-		/*UIBarButtonItem * bi = MSHookIvar<UIBarButtonItem*>(self,"_shareButtonItem");
-		UIViewController * target = bi.target;
-
-		ret = target.navigationController;
-		NSLog(@"navController: %@", ret);
-
-		bar = [ret navigationBar];
-		NSLog(@"navbar: %@",bar);
-		NSLog(@"topItem: %@",[bar topItem]);
-		NSLog(@"rightItems: %@",[[bar topItem] rightBarButtonItems]);
-
-		if([[[bar topItem] rightBarButtonItems] count] < 6)
-		{
-			NSMutableArray * items = [(NSArray*)[[bar topItem] rightBarButtonItems] mutableCopy];
-			UIBarButtonItem *btnSort = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemOrganize target:self action:@selector(sortActionSheet)];
-			[items addObject:btnSort];
-			[[bar topItem] setRightBarButtonItems:items];
-			[btnSort release];
-		}*/
 	}
 	else
 	{
