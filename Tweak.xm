@@ -317,12 +317,59 @@ NSString * customColor = @"Custom Color";
 
 -(void)tableView:(id)view didSelectRowAtIndexPath:(id)indexPath
 {
-	if( UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad)
+	/*if( UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad)
 	{
 		UITableView * tbv = view;
 		if(tbv && ipath)
 		{
 			[tbv deselectRowAtIndexPath:ipath animated:YES];
+		}
+	}*/
+	if( UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad)
+	{
+		NSLog(@"didSelectRowAtIndexPath - iPad");
+		UINavigationController * ret = [[UIApplication sharedApplication] navigationController];
+		UINavigationBar * bar = [ret navigationBar];
+		NSLog(@"rightItems: %@",[[bar topItem] rightBarButtonItems]);
+
+		if([[[bar topItem] rightBarButtonItems] count] == 6  || [[[bar topItem] rightBarButtonItems] count] == 7)
+		{
+			NSMutableArray * items = [(NSArray*)[[bar topItem] rightBarButtonItems] mutableCopy];
+			
+			NotesDisplayController * ndc = [[UIApplication sharedApplication] displayController];
+			NoteObject * selectedNote = MSHookIvar<NoteObject*>(ndc,"_note");
+
+			if([favorites containsObject:[selectedNote creationDate]])
+			{
+				if([[[bar topItem] rightBarButtonItems] count] == 6)
+				{
+					NSLog(@"favorited selected by palette not added");
+					NSString *colorPalette = @"\U0001F3A8\U0000FE0E";
+					UIBarButtonItem * color = [[UIBarButtonItem alloc] initWithTitle:colorPalette style:UIBarButtonItemStylePlain target:ndc action:@selector(colorActionSheet)];
+					[items addObject:color];
+					[color release];
+				}
+				else
+				{
+					NSLog(@"do nothing because the selected note is a favorite and palette is shown");
+				}
+
+			}
+			else
+			{
+				if([[[bar topItem] rightBarButtonItems] count] == 6)
+				{
+					NSLog(@"do nothing because favorite is NOT selected and don't have palette");
+				}
+				else
+				{
+					NSLog(@"remove palette");
+					[items removeObjectAtIndex:6];
+				}
+			}
+
+			[[bar topItem] setRightBarButtonItems:items];
+			NSLog(@"rightItems after: %@",[[bar topItem] rightBarButtonItems]);
 		}
 	}
 
@@ -405,20 +452,50 @@ NSString * customColor = @"Custom Color";
 
 %new - (void)actionSheet:(UIActionSheet*)actionSheet clickedButtonAtIndex:(NSInteger)clickedButtonAtIndex{
 	
-	if(actionSheet.tag==1)
+	if(actionSheet.tag==1 || actionSheet.tag==5)
 	{
 		if(clickedButtonAtIndex==6)
 		{
-			UIActionSheet *actionSheet2 = [[UIActionSheet alloc] initWithTitle:@"Sort favorites by color?"
-   														delegate:self
-   														cancelButtonTitle:@"Cancel"
-   														destructiveButtonTitle:nil
-   														otherButtonTitles:@"Yes",@"No",nil];
+			if(actionSheet.tag!=5)
+			{
+				UIActionSheet *actionSheet2 = [[UIActionSheet alloc] initWithTitle:@"Sort favorites by color?"
+	   														delegate:self
+	   														cancelButtonTitle:@"Cancel"
+	   														destructiveButtonTitle:nil
+	   														otherButtonTitles:@"Yes",@"No",nil];
 
-			actionSheet2.tag = 2;
-			UIView * mview = MSHookIvar<UIView*>(self,"_backgroundView");
-  			[actionSheet2 showInView:mview];
-  			[actionSheet2 release];
+				actionSheet2.tag = 2;
+				UIView * mview = MSHookIvar<UIView*>(self,"_backgroundView");
+	  			[actionSheet2 showInView:mview];
+	  			[actionSheet2 release];
+  			}
+  			else
+  			{
+
+  			NotesDisplayController * ndc = [[UIApplication sharedApplication] displayController];
+			UIActionSheet * actionSheet2 =[[UIActionSheet alloc] initWithTitle:@"Sort favorites by color?"
+			delegate:[ndc delegate]
+			cancelButtonTitle:@"Cancel"
+			destructiveButtonTitle:nil
+			otherButtonTitles:@"Yes",@"No",nil];
+			actionSheet.tag = 2;
+
+			UINavigationController * ret = [[UIApplication sharedApplication] navigationController];
+			   UINavigationBar * bar = [ret navigationBar];
+			   UIBarButtonItem * bi = nil;
+
+				if([[[bar topItem] rightBarButtonItems] count] > 5)
+				{
+					NSMutableArray * items = [(NSArray*)[[bar topItem] rightBarButtonItems] mutableCopy];
+					bi = [items objectAtIndex:5];
+				}
+
+			   if(bi)
+			   {
+			   	    [actionSheet2 showFromBarButtonItem:bi animated:YES];
+			   }
+			   [actionSheet2 release];
+  			}
 		}
 		else
 			[self changeSort:clickedButtonAtIndex];
@@ -440,7 +517,7 @@ NSString * customColor = @"Custom Color";
 	}
 	else if(actionSheet.tag ==3 || actionSheet.tag==4)
 	{
-		NSLog(@"ColorSheet action sheet pressed");
+		NSLog(@"ColorSheet action sheet pressed - list controller");
 		[self changeColor:clickedButtonAtIndex];
 	}
 
@@ -657,13 +734,13 @@ NSString * customColor = @"Custom Color";
    														delegate:[ndc delegate]
    														cancelButtonTitle:@"Cancel"
    														destructiveButtonTitle:nil
-   														otherButtonTitles:alphaAscending,alphaDescending,modAscending,modDescending,createAscending,createDescending,nil];
-
+   														otherButtonTitles:alphaAscending,alphaDescending,modAscending,modDescending,createAscending,createDescending,sortFavDescription,nil];
+   actionSheet.tag = 5;
    UINavigationController * ret = [[UIApplication sharedApplication] navigationController];
    UINavigationBar * bar = [ret navigationBar];
    UIBarButtonItem * bi = nil;
 
-	if([[[bar topItem] rightBarButtonItems] count] == 6)
+	if([[[bar topItem] rightBarButtonItems] count] > 5)
 	{
 		NSMutableArray * items = [(NSArray*)[[bar topItem] rightBarButtonItems] mutableCopy];
 		bi = [items objectAtIndex:5];
@@ -673,6 +750,7 @@ NSString * customColor = @"Custom Color";
    {
    	    [actionSheet showFromBarButtonItem:bi animated:YES];
    }
+   [actionSheet release];
 
 }
 
@@ -697,14 +775,14 @@ NSString * customColor = @"Custom Color";
 		if([[[bar topItem] rightBarButtonItems] count] == 7)
 		{
 			NSMutableArray * items = [(NSArray*)[[bar topItem] rightBarButtonItems] mutableCopy];
-			bi = [items objectAtIndex:7];
+			bi = [items objectAtIndex:6];
 		}
 
 	   if(bi)
 	   {
 	   	    [actionSheet showFromBarButtonItem:bi animated:YES];
-	   	    [actionSheet release];
 	   }
+	   [actionSheet release];
 	}
 	else
 	{
@@ -723,12 +801,44 @@ NSString * customColor = @"Custom Color";
 
 %new - (void)actionSheet:(UIActionSheet*)actionSheet clickedButtonAtIndex:(NSInteger)clickedButtonAtIndex{
 	NSLog(@"clickedButton on DisplayController actionsheets");
+	if(actionSheet.tag==5)//iPad sort actionsheet
+	{
+		if(clickedButtonAtIndex==6)
+		{
+			NotesDisplayController * ndc = [[UIApplication sharedApplication] displayController];
+			UIActionSheet * actionSheet2 =[[UIActionSheet alloc] initWithTitle:@"Sort favorites by color?"
+			delegate:[ndc delegate]
+			cancelButtonTitle:@"Cancel"
+			destructiveButtonTitle:nil
+			otherButtonTitles:@"Yes",@"No",nil];
+			actionSheet.tag = 2;
+
+			UINavigationController * ret = [[UIApplication sharedApplication] navigationController];
+			   UINavigationBar * bar = [ret navigationBar];
+			   UIBarButtonItem * bi = nil;
+
+				if([[[bar topItem] rightBarButtonItems] count] == 7)
+				{
+					NSMutableArray * items = [(NSArray*)[[bar topItem] rightBarButtonItems] mutableCopy];
+					bi = [items objectAtIndex:6];
+				}
+
+			   if(bi)
+			   {
+			   	    [actionSheet2 showFromBarButtonItem:bi animated:YES];
+			   }
+		}
+		else
+		{
+			[self changeSort:clickedButtonAtIndex];
+		}
+
+	}
+	else
 	if(actionSheet.tag ==3 || actionSheet.tag==4)
 	{
 		NSLog(@"ColorSheet action sheet pressed");
 	}
-	else
-		[self changeSort:clickedButtonAtIndex];
 }
 
 %new -(void)changeSort:(NSInteger)index {
@@ -786,7 +896,7 @@ NSString * customColor = @"Custom Color";
 		ascending = NO;
 	}
 
-	if(index==6)
+	if(index==7)
 	{
 		return;
 	}
@@ -836,7 +946,7 @@ NSString * customColor = @"Custom Color";
 		NSLog(@"topItem: %@",[bar topItem]);
 		NSLog(@"rightItems: %@",[[bar topItem] rightBarButtonItems]);
 
-		if([[[bar topItem] rightBarButtonItems] count] < 7)
+		if([[[bar topItem] rightBarButtonItems] count] < 6)
 		{
 			NSMutableArray * items = [(NSArray*)[[bar topItem] rightBarButtonItems] mutableCopy];
 			UIBarButtonItem *btnSort = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemOrganize target:self action:@selector(sortActionSheet)];
@@ -874,16 +984,6 @@ NSString * customColor = @"Custom Color";
 			}
 		}
 	}
-}
-
-%end
-
-%hook NotesListTableView
-
--(void)deselectRowAtIndexPath:(NSIndexPath*)indexPath animated:(BOOL)view
-{
-	NSLog(@"deselected: row %ld, animated: %ld",(long)indexPath.row,(long)view);
-	%orig;
 }
 
 %end
