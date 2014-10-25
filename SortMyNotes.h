@@ -25,6 +25,7 @@
 }
 @property (copy, nonatomic) NSString * guid;
 @property (copy, nonatomic) NSDate * creationDate;
+@property (copy, nonatomic) NSString * title;
 @end
 
 #import <CoreData/NSFetchedResultsController.h>
