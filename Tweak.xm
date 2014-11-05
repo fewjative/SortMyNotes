@@ -163,9 +163,11 @@ NSString * customColor = @"Custom Color";
 		NSLog(@"error code: %llu",(long long unsigned)[error code]);
 	}
 
+	NSLog(@"Grabbing the tableView after performing fetch");
 	UITableView * tbv = MSHookIvar<UITableView*>(self,"_table");
+	NSLog(@"Successful grab");
 
-	NSLog(@"indexpath: %@",ipath);
+
 	[tbv beginUpdates];
 	[tbv reloadSections:[NSIndexSet indexSetWithIndex:0] withRowAnimation:UITableViewRowAnimationNone];
 	[tbv endUpdates];
@@ -174,6 +176,7 @@ NSString * customColor = @"Custom Color";
 	{
 		if(ipath)
 		{
+			NSLog(@"indexpath: %@",ipath);
 			ipath = nil;
 		}
 	}
@@ -188,7 +191,7 @@ NSString * customColor = @"Custom Color";
 			NSArray * fetchedObjects = [listFRC fetchedObjects];
 			long row = [fetchedObjects indexOfObject:selectedNote];
 			NSIndexPath * scrollPath = [NSIndexPath indexPathForRow:row inSection:0];
-			[tbv scrollToRowAtIndexPath:scrollPath atScrollPosition:UITableViewScrollPositionNone animated:YES];
+			[tbv selectRowAtIndexPath:scrollPath animated:YES scrollPosition:UITableViewScrollPositionNone];
 		}
 	}
 }
@@ -325,7 +328,7 @@ NSString * customColor = @"Custom Color";
 	}
 }
 
--(void)tableView:(id)view didSelectRowAtIndexPath:(id)indexPath
+-(void)tableView:(id)view didSelectRowAtIndexPath:(NSIndexPath*)indexPath
 {
 	/*if( UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad)
 	{
@@ -346,11 +349,31 @@ NSString * customColor = @"Custom Color";
 		{
 			NSMutableArray * items = [(NSArray*)[[bar topItem] rightBarButtonItems] mutableCopy];
 			
-			NotesDisplayController * ndc = [[UIApplication sharedApplication] displayController];
-			NoteObject * selectedNote = MSHookIvar<NoteObject*>(ndc,"_note");
-			NSLog(@"selectedNote: %@", [selectedNote title]);
+			NSFetchedResultsController* listFRC = MSHookIvar<NSFetchedResultsController*>(self,"_listFRC");
 
-			if([favorites containsObject:[selectedNote creationDate]])
+			if([[listFRC fetchedObjects] count]==0)
+			{
+				if([[[bar topItem] rightBarButtonItems] count] == 6)
+				{
+					NSLog(@"(do nothing)the favorite is NOT selected and it doesn't have palette");
+				}
+				else
+				{
+					NSLog(@"favorited is NOT selected but has the palette, removing");
+					[items removeObjectAtIndex:6];
+				}
+				[[bar topItem] setRightBarButtonItems:items];
+				NSLog(@"rightItems after: %@",[[bar topItem] rightBarButtonItems]);
+				ipath = indexPath;
+				%orig;
+				return;
+			}
+
+			NSDate * creationDate = [[[listFRC fetchedObjects] objectAtIndex: indexPath.row] creationDate];
+			NSLog(@"selectedNote from indexpath: %@", creationDate);
+			NotesDisplayController * ndc = [[UIApplication sharedApplication] displayController];
+
+			if([favorites containsObject:creationDate])
 			{
 				if([[[bar topItem] rightBarButtonItems] count] == 6)
 				{
@@ -389,9 +412,13 @@ NSString * customColor = @"Custom Color";
 
 -(id)tableView:(id)view cellForRowAtIndexPath:(NSIndexPath*)indexPath
 {
+	NSLog(@"cellForRowAtIndexPath");
 	UITableViewCell * original = %orig;
 
 	NSFetchedResultsController* listFRC = MSHookIvar<NSFetchedResultsController*>(self,"_listFRC");
+
+	if([[listFRC fetchedObjects] count]==0)
+		return original;
 
 	NSDate * creationDate = [[[listFRC fetchedObjects] objectAtIndex: indexPath.row] creationDate];
 	NSString * searchTerms = MSHookIvar<NSString*>(self,"_searching");
@@ -623,7 +650,6 @@ NSString * customColor = @"Custom Color";
 
 	if( UI_USER_INTERFACE_IDIOM() != UIUserInterfaceIdiomPad)
 	{
-		NSLog(@"ipath: %@", ipath);
 		if(!ipath)
 		{
 			[self changeSort:selection-1];
@@ -726,6 +752,10 @@ NSString * customColor = @"Custom Color";
 		[[NSUserDefaults standardUserDefaults] setObject:favorites forKey:@"NotesFavorites"];
 
 		sortFavorites = NO;
+	}
+	else
+	{
+		NSLog(@"Exited perform fetch without modifying system");
 	}
 
 	return b;
