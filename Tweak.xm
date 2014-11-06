@@ -145,7 +145,7 @@ NSString * customColor = @"Custom Color";
 		ascending = NO;
 	}
 
-	/*INDEX 6 is handled in the original click delegate method */
+	//INDEX 6 is handled in the original click delegate method
 
 	[[NSUserDefaults standardUserDefaults] setObject:[NSNumber numberWithInt:selection] forKey:@"NotesSelection"];
 	[[NSUserDefaults standardUserDefaults] setBool:sortFavByColor forKey:@"NotesSortFavColor"];
@@ -194,6 +194,7 @@ NSString * customColor = @"Custom Color";
 			[tbv selectRowAtIndexPath:scrollPath animated:YES scrollPosition:UITableViewScrollPositionNone];
 		}
 	}
+	
 }
 
 %new -(void)changeColor:(NSInteger)index {
@@ -328,6 +329,28 @@ NSString * customColor = @"Custom Color";
 	}
 }
 
+-(void)tableView:(id)view commitEditingStyle:(int)style forRowAtIndexPath:(id)indexPath
+{
+	NSLog(@"Commit Editing Style: %ld",(long)style);
+	%orig;
+}
+
+-(void)tableView:(id)view didEndEditingRowAtIndexPath:(id)indexPath
+{
+	NSLog(@"did end edit");
+	%orig;
+}
+
+-(void)noteEditingStateChanged
+{
+	NSLog(@"noteEditingStateChanged");
+	%orig;
+}
+
+-(void)endEditingOnController:(id)controller{
+	NSLog(@"endEditingOnController");
+	%orig;
+}
 -(void)tableView:(id)view didSelectRowAtIndexPath:(NSIndexPath*)indexPath
 {
 	/*if( UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad)
@@ -545,6 +568,7 @@ NSString * customColor = @"Custom Color";
 	}
 	else if(actionSheet.tag==2)
 	{
+		NSLog(@"Sort Fav by color - clicked button at index: %lu",(long)clickedButtonAtIndex);
 		bool sortFavCurrent = sortFavByColor;
 
 		if(clickedButtonAtIndex==0)
@@ -690,6 +714,7 @@ NSString * customColor = @"Custom Color";
 		[self _makeMutableFetchedObjects];
 		NSMutableArray * fetchedObjects = MSHookIvar<NSMutableArray*>(self,"_fetchedObjects");
 		NSMutableArray * favCopy = [[NSMutableArray alloc] initWithArray:favorites copyItems:YES];
+		NSMutableArray * favSortable = [[NSMutableArray alloc] initWithArray:favorites copyItems:YES];
 
 		NSDateFormatter * dateFormat = [[NSDateFormatter alloc] init];
 		[dateFormat setDateFormat:@"yyyy-MM-dd HH:mm:ss Z"];
@@ -711,7 +736,7 @@ NSString * customColor = @"Custom Color";
 		for(long i=0; i < [favCopy count]; i++)//removes favorites that have been deleted
 		{
 			NSDate *creationDate = [favCopy objectAtIndex:i];
-			[favorites removeObject:creationDate];
+			[favSortable removeObject:creationDate];
 			[colorMap removeObjectForKey:[dateFormat stringFromDate:creationDate]];
 		}
 
@@ -721,9 +746,11 @@ NSString * customColor = @"Custom Color";
 				return (NSComparisonResult)[obj1 compare:obj2];
 			}];
 
+			NSLog(@"SortedKeys: %@",sortedKeys);
+
 			for(long i=0; i< [sortedKeys count]; i++)
 			{
-				for(long j=i; j< [favorites count]; j++)
+				for(long j=i; j< [favSortable count]; j++)
 				{
 					NoteObject * note = [fetchedObjects objectAtIndex:j];
 					if([[dateFormat stringFromDate:[note creationDate]] isEqualToString:[sortedKeys objectAtIndex:i]] && i!=j)
@@ -733,14 +760,13 @@ NSString * customColor = @"Custom Color";
 					}
 				}
 			}
-
 		}
 		else
 		{
-			for(long i=0; i< [favorites count]; i++)
+			for(long i=0; i< [favSortable count]; i++)
 			{
 				NoteObject * note = [fetchedObjects objectAtIndex:i];
-				long newIndex = [favorites indexOfObject:[note creationDate]];
+				long newIndex = [favSortable indexOfObject:[note creationDate]];
 
 				if(i != newIndex)
 				{
@@ -843,13 +869,45 @@ NSString * customColor = @"Custom Color";
 -(void)viewDidAppear:(BOOL)view{
 	NSLog(@"viewDidAppear - DisplayController");
 
+	id selectionobj = [[NSUserDefaults standardUserDefaults] objectForKey:@"NotesSelection"];
+
+	if(selectionobj== nil)
+	{
+		selection = 4;
+	}
+	else
+	{
+		selection = [selectionobj intValue];
+	}
+
+	favorites = [[NSUserDefaults standardUserDefaults] objectForKey:@"NotesFavorites"];
+
+	if(!favorites)
+	{
+		favorites  = [[NSMutableArray alloc] init];
+	}else
+	{
+		favorites = [[NSMutableArray alloc] initWithArray:favorites];
+	}
+
+	sortFavByColor = [[NSUserDefaults standardUserDefaults] boolForKey:@"NotesSortFavColor"];
+
+	colorMap = [[NSUserDefaults standardUserDefaults] objectForKey:@"colorMap"];
+
+	if(!colorMap)
+	{
+		colorMap = [[NSMutableDictionary alloc] init];
+	}
+	else
+	{
+		colorMap = [[[NSUserDefaults standardUserDefaults] objectForKey:@"colorMap"] mutableCopy];
+	}
+
 	if( UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad)
 	{
 		NSLog(@"vda_dc - ipad");
 		UINavigationController * nav = [[UIApplication sharedApplication] navigationController];
 		UINavigationBar * bar = [nav navigationBar];
-
-		//NSLog(@"rightItems: %@",[[bar topItem] rightBarButtonItems]); //can use this to visually verify the correct amount of button items
 
 		if([[[bar topItem] rightBarButtonItems] count] < 6)
 		{
@@ -890,6 +948,21 @@ NSString * customColor = @"Custom Color";
 			    [color release];
 			}
 		}
+	}
+}
+
+-(void)setEditing:(BOOL)editing animated:(BOOL)animated
+{
+	%orig;
+	NSLog(@"setEditing: %ld",(long)editing);
+	NSLog(@"animated: %ld",(long)animated);
+	UIInterfaceOrientation orientation = [UIApplication sharedApplication].statusBarOrientation;
+
+	if(editing==0 && UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad && ((orientation == UIDeviceOrientationLandscapeRight)||(orientation == UIDeviceOrientationLandscapeLeft)))
+	{
+		NSLog(@"User has finished editing their note and should change the sort");
+		NotesListController * nlc = [[UIApplication sharedApplication] listController];
+		[nlc changeSort:selection-1];
 	}
 }
 
