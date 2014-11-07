@@ -8,6 +8,7 @@ static NSIndexPath * ipath = nil;
 static NoteObject * selectedNote = nil;
 static NoteObject * noteToChangeColor = nil;
 static bool sortFavByColor = NO;
+static bool doneEditing = YES;
 static NSMutableDictionary *colorMap = nil;
 
 %hook NotesListController
@@ -189,12 +190,14 @@ NSString * customColor = @"Custom Color";
 		if(selectedNote)
 		{
 			NSArray * fetchedObjects = [listFRC fetchedObjects];
+			NSLog(@"fetchedObjects count: %ld",(long)[fetchedObjects count]);
 			long row = [fetchedObjects indexOfObject:selectedNote];
+			NSLog(@"row of selected: %ld",(long)row);
 			NSIndexPath * scrollPath = [NSIndexPath indexPathForRow:row inSection:0];
+			NSLog(@"indexPath %@",scrollPath);
 			[tbv selectRowAtIndexPath:scrollPath animated:YES scrollPosition:UITableViewScrollPositionNone];
 		}
 	}
-	
 }
 
 %new -(void)changeColor:(NSInteger)index {
@@ -329,9 +332,30 @@ NSString * customColor = @"Custom Color";
 	}
 }
 
--(void)tableView:(id)view commitEditingStyle:(int)style forRowAtIndexPath:(id)indexPath
+-(void)tableView:(id)view commitEditingStyle:(int)style forRowAtIndexPath:(NSIndexPath*)indexPath
 {
 	NSLog(@"Commit Editing Style: %ld",(long)style);
+	if(style==1)//1 == Note is being deleted
+	{
+		NSFetchedResultsController* listFRC = MSHookIvar<NSFetchedResultsController*>(self,"_listFRC");
+		NSDate * selectedNoteDate = [[[listFRC fetchedObjects] objectAtIndex: indexPath.row] creationDate];
+		NSLog(@"selectedNote from indexpath: %@", selectedNoteDate);
+
+		if([favorites containsObject:selectedNoteDate])
+		{
+			NSDateFormatter * dateFormat = [[NSDateFormatter alloc] init];
+			[dateFormat setDateFormat:@"yyyy-MM-dd HH:mm:ss Z"];
+			NSLog(@"Note was a favorite, removing the favorite and removing the mapping");
+			[favorites removeObject:selectedNoteDate];
+			[colorMap removeObjectForKey:[dateFormat stringFromDate:selectedNoteDate]];
+			[[NSUserDefaults standardUserDefaults] setObject:favorites forKey:@"NotesFavorites"];
+			[[NSUserDefaults standardUserDefaults] setObject:colorMap forKey:@"colorMap"];
+		}
+		else
+		{
+			NSLog(@"Note was not a favorite");
+		}
+	}
 	%orig;
 }
 
@@ -344,6 +368,16 @@ NSString * customColor = @"Custom Color";
 -(void)noteEditingStateChanged
 {
 	NSLog(@"noteEditingStateChanged");
+	UIInterfaceOrientation orientation = [UIApplication sharedApplication].statusBarOrientation;
+
+	if(doneEditing && UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad && ((orientation == UIDeviceOrientationLandscapeRight)||(orientation == UIDeviceOrientationLandscapeLeft)))
+	{
+		NSLog(@"User has finished editing their note and should change the sort");
+		NotesListController * nlc = [[UIApplication sharedApplication] listController];
+		[nlc changeSort:selection-1];
+	}
+	doneEditing = NO;
+
 	%orig;
 }
 
@@ -737,7 +771,8 @@ NSString * customColor = @"Custom Color";
 		{
 			NSDate *creationDate = [favCopy objectAtIndex:i];
 			[favSortable removeObject:creationDate];
-			[colorMap removeObjectForKey:[dateFormat stringFromDate:creationDate]];
+			//[colorMap removeObjectForKey:[dateFormat stringFromDate:creationDate]];
+			//Don't remove the colorMap key/value
 		}
 
 		if(sortFavByColor)
@@ -747,6 +782,20 @@ NSString * customColor = @"Custom Color";
 			}];
 
 			NSLog(@"SortedKeys: %@",sortedKeys);
+
+			/*for(long i=0; i< [sortedKeys count]; i++)
+			{
+				for(long j=0; j< [favSortable count]; j++)
+				{
+					NoteObject * note = [fetchedObjects objectAtIndex:j];
+					if([[dateFormat stringFromDate:[note creationDate]] isEqualToString:[sortedKeys objectAtIndex:i]] && i!=j)
+					{
+						[fetchedObjects exchangeObjectAtIndex:i withObjectAtIndex:j];
+						break;
+					}
+				}
+				if([[sortedKeys objectAtIndex:i] isEqualToString)
+			}*/
 
 			for(long i=0; i< [sortedKeys count]; i++)
 			{
@@ -763,14 +812,18 @@ NSString * customColor = @"Custom Color";
 		}
 		else
 		{
+			NSLog(@"SortedKeys: %@",favSortable);
+
 			for(long i=0; i< [favSortable count]; i++)
 			{
-				NoteObject * note = [fetchedObjects objectAtIndex:i];
-				long newIndex = [favSortable indexOfObject:[note creationDate]];
-
-				if(i != newIndex)
+				for(long j=i; j< [favSortable count]; j++)
 				{
-					[fetchedObjects exchangeObjectAtIndex:i withObjectAtIndex:newIndex];
+					NoteObject * note = [fetchedObjects objectAtIndex:j];
+					if([[dateFormat stringFromDate:[note creationDate]] isEqualToString:[dateFormat stringFromDate:[favSortable objectAtIndex:i]]] && i!=j)
+					{
+						[fetchedObjects exchangeObjectAtIndex:i withObjectAtIndex:j];
+						break;
+					}
 				}
 			}
 		}
@@ -781,6 +834,12 @@ NSString * customColor = @"Custom Color";
 	}
 	else
 	{
+		if(favorites!=nil && [favorites count]==0)
+		{
+			NSLog(@"Resetting the colorMap");
+			[colorMap removeAllObjects];
+			[[NSUserDefaults standardUserDefaults] setObject:colorMap forKey:@"colorMap"];
+		}
 		NSLog(@"Exited perform fetch without modifying system");
 	}
 
@@ -951,19 +1010,91 @@ NSString * customColor = @"Custom Color";
 	}
 }
 
+-(void)actionSheet:(id)actionSheet clickedButtonAtIndex:(NSInteger)indexPath
+{
+	NSLog(@"Displaycontroller action sheet clicked button, %@ %ld",actionSheet,(long)indexPath);
+	if(actionSheet!=nil && !indexPath)
+	{
+		NSLog(@"Removing note potential from favorites");
+		NSDate * selectedNoteDate = [(NoteObject*)MSHookIvar<NoteObject*>(self,"_note") creationDate];
+
+		if([favorites containsObject:selectedNoteDate])
+		{
+			NSDateFormatter * dateFormat = [[NSDateFormatter alloc] init];
+			[dateFormat setDateFormat:@"yyyy-MM-dd HH:mm:ss Z"];
+			NSLog(@"Note was a favorite, removing the favorite and removing the mapping");
+			[favorites removeObject:selectedNoteDate];
+			[colorMap removeObjectForKey:[dateFormat stringFromDate:selectedNoteDate]];
+			[[NSUserDefaults standardUserDefaults] setObject:favorites forKey:@"NotesFavorites"];
+			[[NSUserDefaults standardUserDefaults] setObject:colorMap forKey:@"colorMap"];
+		}
+		else
+		{
+			NSLog(@"Note was not a favorite");
+		}
+	}
+	%orig;
+}
+
+-(void)deleteButtonClicked
+{
+	NSLog(@"deleteButtonClicked");
+	%orig;
+}
+
+-(void)saveNote
+{
+	NSLog(@"SaveNote");
+
+	/*UIInterfaceOrientation orientation = [UIApplication sharedApplication].statusBarOrientation;
+
+	if(UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad && ((orientation == UIDeviceOrientationLandscapeRight)||(orientation == UIDeviceOrientationLandscapeLeft)))
+	{
+		NSLog(@"User has finished saving their note and should change the sort");
+		NotesListController * nlc = [[UIApplication sharedApplication] listController];
+		[nlc changeSort:selection-1];
+	}*/
+
+	NSLog(@"Returned to saveNote");
+	return %orig;
+}
+
+-(BOOL)noteNeedsSaving
+{
+	bool orig = %orig;
+	NSLog(@"NoteNeedsSaving, %ld",(long)orig);
+	return orig;
+}
+
 -(void)setEditing:(BOOL)editing animated:(BOOL)animated
 {
 	%orig;
 	NSLog(@"setEditing: %ld",(long)editing);
 	NSLog(@"animated: %ld",(long)animated);
-	UIInterfaceOrientation orientation = [UIApplication sharedApplication].statusBarOrientation;
+	if(!editing)
+		doneEditing = YES;
+	/*UIInterfaceOrientation orientation = [UIApplication sharedApplication].statusBarOrientation;
 
 	if(editing==0 && UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad && ((orientation == UIDeviceOrientationLandscapeRight)||(orientation == UIDeviceOrientationLandscapeLeft)))
 	{
 		NSLog(@"User has finished editing their note and should change the sort");
 		NotesListController * nlc = [[UIApplication sharedApplication] listController];
 		[nlc changeSort:selection-1];
-	}
+	}*/
 }
 
+%end
+
+%hook UITextViewDelegate
+
+-(void)textViewDidEndEditing:(id)textViewDidEndEditing{
+	NSLog(@"textViewDidEndEditing");
+	%orig;
+}
+
+-(BOOL)textViewShouldEndEditing:(id)textViewShouldEndEditing{
+	NSLog(@"textViewShouldEndEditing");
+	bool b = %orig;
+	return b;
+}
 %end

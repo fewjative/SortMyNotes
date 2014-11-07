@@ -1,1 +1,1 @@
-{ Filter = { Bundles = ( "com.apple.mobilenotes","com.apple.Foundation","com.apple.CoreData" ); }; }
+{ Filter = { Bundles = ( "com.apple.mobilenotes","com.apple.Foundation","com.apple.CoreData","com.apple.UIKit" ); }; }
