@@ -41,6 +41,7 @@
 {
 	NSFetchedResultsController* _listFRC;
 }
++(NSDateFormatter*)dateFormatter;
 - (UIColor *)colorFromHexString:(NSString *)hexString;
 - (void)reloadTables;
 - (id)noteDisplayNavigationController;
@@ -57,6 +58,7 @@
 @end
 
 @interface NotesDisplayController : UIViewController <UIActionSheetDelegate>
++(NSDateFormatter*)dateFormatter;
 -(void)changeSort:(NSInteger)index;
 -(void)sortActionSheetTest;
 -(id)delegate;

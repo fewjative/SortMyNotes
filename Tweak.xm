@@ -5,6 +5,7 @@ static NSMutableArray * favorites;
 static bool ascending = NO;
 static bool sortFavorites = NO;
 static NSIndexPath * ipath = nil;
+static bool doInitialSort = YES;
 static NoteObject * selectedNote = nil;
 static NoteObject * noteToChangeColor = nil;
 static bool sortFavByColor = NO;
@@ -52,6 +53,18 @@ NSString * brownColor = @"Brown";
 UIColor * brownColorUI = [UIColor brownColor];
 NSString * customColor = @"Custom Color";
 
+%new +(NSDateFormatter*)dateFormatter
+{
+	static NSDateFormatter *dateFormatter = nil;
+	if( dateFormatter==nil)
+	{
+		dateFormatter = [[NSDateFormatter alloc] init];
+		[dateFormatter setDateFormat:@"yyyy-MM-dd HH:mm:ss Z"];
+
+	}
+	return dateFormatter;
+}
+
 %new - (NSString *)hexStringFromColor:(UIColor *)color
 {
     const CGFloat *components = CGColorGetComponents(color.CGColor);
@@ -91,18 +104,18 @@ NSString * customColor = @"Custom Color";
 %new -(void)changeSort:(NSInteger)index {
 	NSLog(@"Changing the sort type from the ListController");
 
+	if(index==7)
+	{
+		NSLog(@"Action canceled");
+		return;
+	}
+
 	NotesListController * nlc = [[UIApplication sharedApplication] listController];
 	NSFetchedResultsController* listFRC = MSHookIvar<NSFetchedResultsController*>(nlc,"_listFRC");
 	NSFetchRequest *fr = [listFRC fetchRequest];
 	[NSFetchedResultsController deleteCacheWithName:nil];
 	[NSFetchedResultsController deleteCacheWithName:[listFRC cacheName]];
 	NSSortDescriptor * sortDescriptor;
-
-	if(index==7)
-	{
-		NSLog(@"Action canceled");
-		return;
-	}
 
 	if(index==0)
 	{
@@ -202,16 +215,17 @@ NSString * customColor = @"Custom Color";
 
 %new -(void)changeColor:(NSInteger)index {
 	NSLog(@"Changing the color of the note from the ListController, index: %ld", (long)index);
-	NSDateFormatter * dateFormat = [[NSDateFormatter alloc] init];
-	[dateFormat setDateFormat:@"yyyy-MM-dd HH:mm:ss Z"];
-	NSDate * creationDate = [noteToChangeColor creationDate];
-	NSLog(@"noteToChangeColor: %@", [noteToChangeColor title]);
 
 	if(index==14)
 	{
 		noteToChangeColor = nil;
 		return;
 	}
+
+	NSDateFormatter * dateFormat = [[NSDateFormatter alloc] init];
+	[dateFormat setDateFormat:@"yyyy-MM-dd HH:mm:ss Z"];
+	NSDate * creationDate = [noteToChangeColor creationDate];
+	NSLog(@"noteToChangeColor: %@", [noteToChangeColor title]);
 
 	if(index==0)
 	{
@@ -303,22 +317,22 @@ NSString * customColor = @"Custom Color";
 	else
 	{
 		UITextField * alertTextField = [alertView textFieldAtIndex:0];
-		NSLog(@"text from alert: %@",alertTextField.text);
-		if(alertTextField.text.length !=6)
+		NSLog(@"text from alert: %@, count: %ld",alertTextField.text,(long)alertTextField.text.length);
+		if((long)alertTextField.text.length !=6)
 		{
 			noteToChangeColor = nil;
+			return;
 		}
 		else
 		{
+			NSLog(@"Hex entered is proper length, checking for correct characters");
 			NSCharacterSet * chars = [[NSCharacterSet characterSetWithCharactersInString:@"0123456789ABCDEFabcdef"] invertedSet];
 			BOOL isValid = (NSNotFound == [alertTextField.text rangeOfCharacterFromSet:chars].location);
 			if(isValid)
 			{
 				NSLog(@"Valid custom hex");
-				NSDateFormatter * dateFormat = [[NSDateFormatter alloc] init];
-				[dateFormat setDateFormat:@"yyyy-MM-dd HH:mm:ss Z"];
 				NSDate * creationDate = [noteToChangeColor creationDate];
-				[colorMap setObject:alertTextField.text forKey:[dateFormat stringFromDate:creationDate]];
+				[colorMap setObject:alertTextField.text forKey:[[%c(NotesListController) dateFormatter] stringFromDate:creationDate]];
 				[[NSUserDefaults standardUserDefaults] setObject:colorMap forKey:@"colorMap"];
 				noteToChangeColor = nil;
 				[self changeSort:selection-1];
@@ -328,7 +342,6 @@ NSString * customColor = @"Custom Color";
 				noteToChangeColor = nil;
 			}
 		}
-
 	}
 }
 
@@ -343,11 +356,9 @@ NSString * customColor = @"Custom Color";
 
 		if([favorites containsObject:selectedNoteDate])
 		{
-			NSDateFormatter * dateFormat = [[NSDateFormatter alloc] init];
-			[dateFormat setDateFormat:@"yyyy-MM-dd HH:mm:ss Z"];
 			NSLog(@"Note was a favorite, removing the favorite and removing the mapping");
 			[favorites removeObject:selectedNoteDate];
-			[colorMap removeObjectForKey:[dateFormat stringFromDate:selectedNoteDate]];
+			[colorMap removeObjectForKey:[[%c(NotesListController) dateFormatter] stringFromDate:selectedNoteDate]];
 			[[NSUserDefaults standardUserDefaults] setObject:favorites forKey:@"NotesFavorites"];
 			[[NSUserDefaults standardUserDefaults] setObject:colorMap forKey:@"colorMap"];
 		}
@@ -377,6 +388,13 @@ NSString * customColor = @"Custom Color";
 		[nlc changeSort:selection-1];
 	}
 	doneEditing = NO;
+
+	if(UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad && ((orientation != UIDeviceOrientationLandscapeRight)&&(orientation != UIDeviceOrientationLandscapeLeft)))
+	{
+		NSLog(@"User has finished saving their note and should change the sort");
+		NotesListController * nlc = [[UIApplication sharedApplication] listController];
+		[nlc changeSort:selection-1];
+	}
 
 	%orig;
 }
@@ -484,9 +502,7 @@ NSString * customColor = @"Custom Color";
 	{
 		NSLog(@"creationDate is in favorites, indexPath %@", indexPath);
 		UIView * v = [[UIView alloc] initWithFrame:original.frame];
-		NSDateFormatter * dateFormat = [[NSDateFormatter alloc] init];
-		[dateFormat setDateFormat:@"yyyy-MM-dd HH:mm:ss Z"];
-		v.backgroundColor = [self colorFromHexString:[colorMap objectForKey:[dateFormat stringFromDate:creationDate]]];
+		v.backgroundColor = [self colorFromHexString:[colorMap objectForKey:[[%c(NotesListController) dateFormatter] stringFromDate:creationDate]]];
 		NSLog(@"v.backgroundColor : %@", v.backgroundColor);
 		original.backgroundView = v;
 		[v release];
@@ -524,18 +540,16 @@ NSString * customColor = @"Custom Color";
 		NSLog(@"Pressed alternative row: %ld",(long)alternativeIP.row);
 		NSDate * creationDate = [[[listFRC fetchedObjects] objectAtIndex:alternativeIP.row] creationDate];	
 		NSLog(@"date of note long pressed: %@",creationDate);
-		NSDateFormatter * dateFormat = [[NSDateFormatter alloc] init];
-		[dateFormat setDateFormat:@"yyyy-MM-dd HH:mm:ss Z"];
 
 		if(![favorites containsObject:creationDate])
 		{
 			[favorites insertObject:creationDate atIndex:0];			
-			[colorMap setObject:[self hexStringFromColor:yellowColorUI] forKey:[dateFormat stringFromDate:creationDate]];
+			[colorMap setObject:[self hexStringFromColor:yellowColorUI] forKey:[[%c(NotesListController) dateFormatter] stringFromDate:creationDate]];
 		}
 		else
 		{
 			[favorites removeObject:creationDate];
-			[colorMap removeObjectForKey:[dateFormat stringFromDate:creationDate]];
+			[colorMap removeObjectForKey:[[%c(NotesListController) dateFormatter] stringFromDate:creationDate]];
 		}
 
 		[[NSUserDefaults standardUserDefaults] setObject:favorites forKey:@"NotesFavorites"];
@@ -716,10 +730,13 @@ NSString * customColor = @"Custom Color";
 	}
 	else
 	{
-		[self changeSort:selection-1];
+		UIInterfaceOrientation orientation = [UIApplication sharedApplication].statusBarOrientation;
+		if(orientation == UIDeviceOrientationLandscapeRight||orientation == UIDeviceOrientationLandscapeLeft || doInitialSort)
+		{
+			[self changeSort:selection-1];
+			doInitialSort = NO;
+		}
 	}
-
-	
 }
 
 -(void)reloadTables {
@@ -732,6 +749,18 @@ NSString * customColor = @"Custom Color";
 %end
 
 %hook NSFetchedResultsController
+
+%new +(NSDateFormatter*)dateFormatter
+{
+	static NSDateFormatter *dateFormatter = nil;
+	if( dateFormatter==nil)
+	{
+		dateFormatter = [[NSDateFormatter alloc] init];
+		[dateFormatter setDateFormat:@"yyyy-MM-dd HH:mm:ss Z"];
+
+	}
+	return dateFormatter;
+}
 
 -(BOOL)performFetch:(id*)arg1
 {
@@ -749,9 +778,6 @@ NSString * customColor = @"Custom Color";
 		NSMutableArray * fetchedObjects = MSHookIvar<NSMutableArray*>(self,"_fetchedObjects");
 		NSMutableArray * favCopy = [[NSMutableArray alloc] initWithArray:favorites copyItems:YES];
 		NSMutableArray * favSortable = [[NSMutableArray alloc] initWithArray:favorites copyItems:YES];
-
-		NSDateFormatter * dateFormat = [[NSDateFormatter alloc] init];
-		[dateFormat setDateFormat:@"yyyy-MM-dd HH:mm:ss Z"];
 
 		for(long i=0; i < [fetchedObjects count]; i++)
 		{
@@ -802,7 +828,7 @@ NSString * customColor = @"Custom Color";
 				for(long j=i; j< [favSortable count]; j++)
 				{
 					NoteObject * note = [fetchedObjects objectAtIndex:j];
-					if([[dateFormat stringFromDate:[note creationDate]] isEqualToString:[sortedKeys objectAtIndex:i]] && i!=j)
+					if([[[%c(NSFetchedResultsController) dateFormatter] stringFromDate:[note creationDate]] isEqualToString:[sortedKeys objectAtIndex:i]] && i!=j)
 					{
 						[fetchedObjects exchangeObjectAtIndex:i withObjectAtIndex:j];
 						break;
@@ -819,7 +845,7 @@ NSString * customColor = @"Custom Color";
 				for(long j=i; j< [favSortable count]; j++)
 				{
 					NoteObject * note = [fetchedObjects objectAtIndex:j];
-					if([[dateFormat stringFromDate:[note creationDate]] isEqualToString:[dateFormat stringFromDate:[favSortable objectAtIndex:i]]] && i!=j)
+					if([[[%c(NSFetchedResultsController) dateFormatter] stringFromDate:[note creationDate]] isEqualToString:[[%c(NSFetchedResultsController) dateFormatter] stringFromDate:[favSortable objectAtIndex:i]]] && i!=j)
 					{
 						[fetchedObjects exchangeObjectAtIndex:i withObjectAtIndex:j];
 						break;
@@ -849,6 +875,18 @@ NSString * customColor = @"Custom Color";
 %end
 
 %hook NotesDisplayController
+
+%new +(NSDateFormatter*)dateFormatter
+{
+	static NSDateFormatter *dateFormatter = nil;
+	if( dateFormatter==nil)
+	{
+		dateFormatter = [[NSDateFormatter alloc] init];
+		[dateFormatter setDateFormat:@"yyyy-MM-dd HH:mm:ss Z"];
+
+	}
+	return dateFormatter;
+}
 
 %new -(void)sortActionSheet{
    NSLog(@"sortActionSheet - DisplayController");
@@ -987,6 +1025,14 @@ NSString * customColor = @"Custom Color";
 			[[bar topItem] setRightBarButtonItems:items];
 			[btnSort release];
 		}
+
+		UIInterfaceOrientation orientation = [UIApplication sharedApplication].statusBarOrientation;
+		if(orientation != UIDeviceOrientationLandscapeRight && orientation != UIDeviceOrientationLandscapeLeft && doInitialSort)
+		{
+			NotesListController * nlc = [[UIApplication sharedApplication] listController];
+			[nlc changeSort:selection-1];
+			doInitialSort = NO;
+		}
 	}
 	else
 	{
@@ -1020,11 +1066,9 @@ NSString * customColor = @"Custom Color";
 
 		if([favorites containsObject:selectedNoteDate])
 		{
-			NSDateFormatter * dateFormat = [[NSDateFormatter alloc] init];
-			[dateFormat setDateFormat:@"yyyy-MM-dd HH:mm:ss Z"];
 			NSLog(@"Note was a favorite, removing the favorite and removing the mapping");
 			[favorites removeObject:selectedNoteDate];
-			[colorMap removeObjectForKey:[dateFormat stringFromDate:selectedNoteDate]];
+			[colorMap removeObjectForKey:[[%c(NotesDisplayController) dateFormatter] stringFromDate:selectedNoteDate]];
 			[[NSUserDefaults standardUserDefaults] setObject:favorites forKey:@"NotesFavorites"];
 			[[NSUserDefaults standardUserDefaults] setObject:colorMap forKey:@"colorMap"];
 		}
@@ -1054,7 +1098,6 @@ NSString * customColor = @"Custom Color";
 		NotesListController * nlc = [[UIApplication sharedApplication] listController];
 		[nlc changeSort:selection-1];
 	}*/
-
 	NSLog(@"Returned to saveNote");
 	return %orig;
 }
@@ -1083,18 +1126,4 @@ NSString * customColor = @"Custom Color";
 	}*/
 }
 
-%end
-
-%hook UITextViewDelegate
-
--(void)textViewDidEndEditing:(id)textViewDidEndEditing{
-	NSLog(@"textViewDidEndEditing");
-	%orig;
-}
-
--(BOOL)textViewShouldEndEditing:(id)textViewShouldEndEditing{
-	NSLog(@"textViewShouldEndEditing");
-	bool b = %orig;
-	return b;
-}
 %end
