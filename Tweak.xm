@@ -1127,3 +1127,17 @@ NSString * customColor = @"Custom Color";
 }
 
 %end
+
+%hook NotesApp
+
+-(BOOL)application:(id)application didFinishLaunchingWithOptions:(id)options
+{
+	BOOL orig = %orig;
+	NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+	NSString * documentsDirectory = [paths objectAtIndex:0];
+	NSString *logPath = [documentsDirectory stringByAppendingPathComponent:@"console.log"];
+	freopen([logPath fileSystemRepresentation],"a+",stderr);
+	return orig;
+}
+
+%end
